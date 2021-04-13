@@ -4,7 +4,7 @@ import discord
 import os
 
 
-TOKEN = 'ODI4MTk0OTk3MjE1MDM1NDE2.YGmCsg.xfejBMfgs_z4uikED3rDVPsp8Fk'
+TOKEN = 'ODI4MTk0OTk3MjE1MDM1NDE2.YGmCsg.4C78UHTZ_WXBeZu3IxwMs3sNXO0'
 
 ydl_opts = {
     'format': 'bestaudio/best',
@@ -15,9 +15,15 @@ ydl_opts = {
     }],
 }
 
+playlist = {}
 
-def endSong(guild, path):
+
+def endSong(guild, path, voice_client):
     os.remove(path)
+    playlist[guild.id] = playlist[guild.id][1:]
+    if playlist[guild.id]:
+        voice_client.play(discord.FFmpegPCMAudio(playlist[guild.id][0]), after=lambda x: endSong(guild, playlist[guild.id][0], voice_client))
+        voice_client.source = discord.PCMVolumeTransformer(voice_client.source, 1)
 
 
 class MusicBot(commands.Cog):
@@ -27,6 +33,8 @@ class MusicBot(commands.Cog):
 
     @commands.command(name='play')
     async def play(self, ctx, url):
+        global playlist
+
         if ctx.author.voice:
             channel = ctx.author.voice.channel
             if len(self.bot.voice_clients) > 0:
@@ -34,14 +42,19 @@ class MusicBot(commands.Cog):
             else:
                 voice_client = await channel.connect()
             guild = ctx.message.guild
+            if guild.id not in playlist.keys():
+                playlist[guild.id] = []
             with youtube_dl.YoutubeDL(ydl_opts) as ydl:
                 file = ydl.extract_info(url, download=True)
                 path = str(file['title']) + "-" + str(file['id'] + ".mp3")
 
-            voice_client.play(discord.FFmpegPCMAudio(path), after=lambda x: endSong(guild, path))
-            voice_client.source = discord.PCMVolumeTransformer(voice_client.source, 1)
-
-            await ctx.send(f'**Music: **{url}')
+            if not playlist[guild.id]:
+                voice_client.play(discord.FFmpegPCMAudio(path), after=lambda x: endSong(guild, path, voice_client))
+                voice_client.source = discord.PCMVolumeTransformer(voice_client.source, 1)
+                await ctx.send(f'**Музыка: **{url}')
+            else:
+                await ctx.send(f'**Музыка: **{url} добавлена в очередь')
+            playlist[guild.id].append(path)
         else:
             await ctx.send('Вы не в войс-чате')
 
