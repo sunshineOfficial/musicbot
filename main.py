@@ -11,7 +11,7 @@ from datetime import datetime as dt
 import pytz
 
 
-TOKEN = 'ODI4MTk0OTk3MjE1MDM1NDE2.YGmCsg.XULFRLsfnrYENx2iQb-WLQA-KR8'
+TOKEN = 'ODI4MTk0OTk3MjE1MDM1NDE2.YGmCsg.7c0U8F0Bsa-KShX0trGgqMA8DQQ'
 
 ydl_opts = {
     'format': 'bestaudio/best',
@@ -230,6 +230,67 @@ class MusicBot(commands.Cog):
 
             await ctx.channel.delete_messages(await ctx.channel.history(limit=n).flatten())
             await ctx.send(f'Удалено {n} сообщений')
+
+    @commands.command(name='change_prefix')
+    async def change_prefix(self, ctx, prefix):
+        bot.command_prefix = prefix
+        await ctx.send('Префикс успешно изменен!')
+
+    @commands.command(name='map')
+    async def map(self, ctx, place, zoom=10):
+        request = f"https://geocode-maps.yandex.ru/1.x/?geocode={place}" \
+                  f"&apikey=40d1649f-0493-4b70-98ba-98533de7710b&format=json"
+        response = requests.get(request).json()
+        toponym = response["response"]["GeoObjectCollection"]["featureMember"][0]["GeoObject"]
+        point = list(map(float, toponym["Point"]["pos"].split()))
+
+        map_params = {
+            'll': point,
+            'z': zoom,
+            'l': 'map'
+        }
+
+        map_request = f"http://static-maps.yandex.ru/1.x/?ll={','.join(map(str, map_params['ll']))}" \
+                      f"&z={map_params['z']}&l={map_params['l']}" \
+                      f"&pt={','.join(map(str, map_params['ll']))},ya_ru"
+        response = requests.get(map_request)
+
+        if not response:
+            await ctx.send(f'Не удалось найти {place}')
+            return
+
+        await ctx.send(response.url)
+
+    @commands.command(name='satellite')
+    async def satellite(self, ctx, place, zoom=10):
+        request = f"https://geocode-maps.yandex.ru/1.x/?geocode={place}" \
+                  f"&apikey=40d1649f-0493-4b70-98ba-98533de7710b&format=json"
+        response = requests.get(request).json()
+        toponym = response["response"]["GeoObjectCollection"]["featureMember"][0]["GeoObject"]
+        point = list(map(float, toponym["Point"]["pos"].split()))
+
+        map_params = {
+            'll': point,
+            'z': zoom,
+            'l': 'sat'
+        }
+
+        map_request = f"http://static-maps.yandex.ru/1.x/?ll={','.join(map(str, map_params['ll']))}" \
+                      f"&z={map_params['z']}&l={map_params['l']}" \
+                      f"&pt={','.join(map(str, map_params['ll']))},ya_ru"
+        response = requests.get(map_request)
+
+        if not response:
+            await ctx.send(f'Не удалось найти {place}')
+            return
+
+        await ctx.send(response.url)
+
+    @commands.command(name='quote')
+    async def quote(self, ctx):
+        request = 'http://api.forismatic.com/api/1.0/?method=getQuote&format=text&lang=ru'
+        response = requests.get(request)
+        await ctx.send(response.text)
 
 
 bot = commands.Bot(command_prefix='$')
