@@ -9,9 +9,9 @@ import pymorphy2
 import random
 from datetime import datetime as dt
 import pytz
+import sqlite3
 
-
-TOKEN = 'ODI4MTk0OTk3MjE1MDM1NDE2.YGmCsg.7c0U8F0Bsa-KShX0trGgqMA8DQQ'
+TOKEN = 'token'
 
 ydl_opts = {
     'format': 'bestaudio/best',
@@ -291,6 +291,78 @@ class MusicBot(commands.Cog):
         request = 'http://api.forismatic.com/api/1.0/?method=getQuote&format=text&lang=ru'
         response = requests.get(request)
         await ctx.send(response.text)
+
+    @commands.command(name='add_fav')
+    async def add_fav(self, ctx, *text):
+        if 'www.youtube.com' not in text[0]:
+            text = ' '.join(text)
+            query_string = parse.urlencode({'search_query': text})
+            htm_content = request.urlopen('https://www.youtube.com/results?' + query_string)
+            search_results = re.findall(r"watch\?v=(\S{11})", htm_content.read().decode())
+            text = 'https://www.youtube.com/watch?v=' + search_results[0]
+        else:
+            text = text[0]
+
+        con = sqlite3.connect('favorite.db')
+        cur = con.cursor()
+        cur.execute(f'INSERT INTO favorite(user_id,url) VALUES({ctx.message.author.id},"{text}")')
+        con.commit()
+        con.close()
+
+        await ctx.send('Музыка успешно добавлена в избранное')
+
+    @commands.command(name='my_fav')
+    async def my_fav(self, ctx):
+        con = sqlite3.connect('favorite.db')
+        cur = con.cursor()
+        res = cur.execute(f'''SELECT url FROM favorite
+WHERE user_id = {ctx.message.author.id}''').fetchall()
+        con.close()
+
+        await ctx.send(f'Избранное {ctx.message.author.name}')
+        s = ''
+        for i in range(len(res)):
+            s += f'{i + 1}. {res[i][0]}\n'
+        await ctx.send(s[:-1])
+
+    @commands.command(name='play_fav')
+    async def play_fav(self, ctx):
+        con = sqlite3.connect('favorite.db')
+        cur = con.cursor()
+        res = cur.execute(f'''SELECT url FROM favorite
+        WHERE user_id = {ctx.message.author.id}''').fetchall()
+        con.close()
+
+        for el in res:
+            await self.play(ctx, el[0])
+
+    @commands.command(name='delete_fav')
+    async def delete_fav(self, ctx, n: int):
+        con = sqlite3.connect('favorite.db')
+        cur = con.cursor()
+        res = cur.execute(f'''SELECT url FROM favorite
+                WHERE user_id = {ctx.message.author.id}''').fetchall()
+
+        if n not in range(1, len(res) + 1):
+            await ctx.send('Нет музыки под таким номером')
+            con.close()
+            return
+
+        x = res[n - 1][0]
+        cur.execute(f'''DELETE FROM favorite
+        WHERE (user_id = {ctx.message.author.id}) AND (url = "{x}")''')
+        con.commit()
+        con.close()
+
+        await ctx.send(f'Музыка №{n} успешно удалена')
+
+    @commands.command(name='queue')
+    async def queue(self, ctx):
+        if playlist[ctx.message.guild.id]:
+            await ctx.send('Очередь треков:')
+            await ctx.send('\n'.join(playlist[ctx.message.guild.id]))
+        else:
+            await ctx.send('Очередь пустая')
 
 
 bot = commands.Bot(command_prefix='$')
