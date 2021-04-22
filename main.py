@@ -25,6 +25,26 @@ ydl_opts = {
 playlist = {}
 dashes = ['\u2680', '\u2681', '\u2682', '\u2683', '\u2684', '\u2685']
 
+connect = sqlite3.connect("city_russian_pack.db")
+list_city = connect.cursor().execute('''SELECT name from main
+            ORDER BY name''').fetchall()
+copi_list = list_city
+slovar_city_number = connect.cursor().execute('''SELECT name, region_id from main
+            ORDER BY region_id''').fetchall()
+for i in range(len(list_city)):
+    list_city[i] = list_city[i][0].replace('ё', 'е')
+random.shuffle(list_city)
+player_list = []
+letter = ''
+slovar = []
+numbers_region = []
+for u in range(len(slovar_city_number)):
+    num = slovar_city_number[u][1]
+    if num not in numbers_region:
+        numbers_region.append(num)
+        slovar.append([num, [i[0] for i in slovar_city_number if i[1] == num]])
+
+
 
 def endSong(guild, path, voice_client):
     if len(playlist[guild.id]) > 0 or len(playlist[guild.id]) > 1 and path != playlist[guild.id][1]:
@@ -291,6 +311,87 @@ class MusicBot(commands.Cog):
         request = 'http://api.forismatic.com/api/1.0/?method=getQuote&format=text&lang=ru'
         response = requests.get(request)
         await ctx.send(response.text)
+
+    @commands.command(name='city')
+    async def сity(self, ctx, name, second_name=''):
+        global list_city, player_list, letter
+        text = 'ok'
+        if second_name != '':
+            stadt = name.capitalize() + ' ' + second_name.capitalize()
+        else:
+            stadt = name.capitalize()
+        if stadt not in list_city:
+            if stadt not in player_list:
+                text = 'Этого города нет в России'
+            else:
+                text = 'Этот город уже называли'
+        else:
+            apriory = 0
+            if (letter != '' and name[0].lower() == letter) or letter == '':
+                list_city.remove(stadt)
+                player_list.append(stadt)
+                if stadt[-1] not in ['ы', 'ь', 'ъ', 'й']:
+                    letter = stadt[-1]
+                else:
+                    if stadt[-2] not in ['ы', 'ь', 'ъ', 'й', ')']:
+                        letter = stadt[-2]
+                    else:
+                        letter = stadt[-3]
+                for i in list_city:
+                    if i[0].lower() == letter:
+                        stadt = i
+                        text = f'{i}, Ваша очередь'
+                        if stadt[-1] not in ['ы', 'ь', 'ъ', 'й', ')']:
+                            letter = stadt[-1]
+                        else:
+                            if stadt[-2] not in ['ы', 'ь', 'ъ', 'й', ')']:
+                                letter = stadt[-2]
+                            else:
+                                letter = stadt[-3]
+                        list_city.remove(i)
+                        apriory = 1
+                        player_list.append(i)
+                        break
+                if apriory == 0:
+                    text = f'Ладно, вы победили...'
+            else:
+                text = f'Город не начинается на последнюю букву предыдущего. Вам нужен город на "{letter.upper()}"'
+        await ctx.send(text)
+
+    @commands.command(name='region')
+    async def region(self, ctx, *name):
+        global slovar, slovar_city_number
+        name = list(map(str.capitalize, name))
+        name = ' '.join(name)
+        try:
+            ss = int(name)
+            t_reg = []
+            for i in slovar:
+                if i[0] == ss:
+                    t_reg = i[1]
+                    break
+            if not t_reg:
+                text = 'Городов с таким номером региона не существует'
+            else:
+                text = '\n'.join(t_reg)
+        except ValueError:
+            text = ''
+            for i in slovar_city_number:
+                if i[0] == name:
+                    text = i[1]
+                    break
+            if text == '':
+                text = 'Такого города не существует'
+        await ctx.send(text)
+
+    @commands.command(name='restart_city')
+    async def restart_city(self, ctx):
+        global copi_list, list_city, player_list, letter
+        list_city = copi_list
+        random.shuffle(list_city)
+        player_list = []
+        letter = ''
+        await ctx.send('Поиграем в города, вы - начинаете')
 
     @commands.command(name='add_fav')
     async def add_fav(self, ctx, *text):
