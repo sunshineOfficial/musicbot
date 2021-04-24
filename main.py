@@ -11,7 +11,7 @@ from datetime import datetime as dt
 import pytz
 import sqlite3
 
-TOKEN = 'ODI4MTk0OTk3MjE1MDM1NDE2.YGmCsg.DURp4eM75i9gVp6T2i7ha8Fss50'
+TOKEN = '<token>'
 
 ydl_opts = {
     'format': 'bestaudio/best',
